@@ -58,48 +58,50 @@ fillRectWith (x,y) w h with img@Image{imageImg} = do
         prev <- readArray imageImg (i, j)
         writeArray imageImg (i, j) $ alphaBlend prev with)
 
--- antialias :: I.RawImage -> Point -> (Point -> Int) -> I.RawPixel -> I.RawPixel
--- antialias img p aliaser (r, g, b, a) = 
---     let a' = aliaser p
---     in (r, g, b, a')
+antialias :: I.Image s -> Point -> (Point -> Int) -> I.RawPixel -> I.RawPixel
+antialias img p aliaser (r, g, b, a) = 
+    let a' = aliaser p
+    in (r, g, b, a')
 
--- aliaser :: (Point -> Bool) -> Point -> Int
--- aliaser tester (i, j) = 
---     let aa = antialiasAmt
---         (i', j') = (aa*i, aa*j)
---         tests = 
---             [ (i' + di, j' + dj) 
---             | di <- [0..(aa - 1)]
---             , dj <- [0..(aa - 1)] ]
---         nPass = length $ filter tester tests
---         nTotal = length tests
---     in P.round $ (fromIntegral nPass :: Float) / (fromIntegral nTotal :: Float) * 255.0 
+aliaser :: (Point -> Bool) -> Point -> Int
+aliaser tester (i, j) = 
+    let aa = antialiasAmt
+        (i', j') = (aa*i, aa*j)
+        tests = 
+            [ (i' + di, j' + dj) 
+            | di <- [0..(aa - 1)]
+            , dj <- [0..(aa - 1)] ]
+        nPass = length $ filter tester tests
+        nTotal = length tests
+    in P.round $ (fromIntegral nPass :: Float) / (fromIntegral nTotal :: Float) * 255.0 
 
--- fillPick :: (Point -> Int) -> I.RawPixel -> I.RawPixel -> Point -> I.RawImage -> I.RawPixel
--- fillPick aliaser' old new at img = 
---     alphaBlend old $ antialias img at aliaser' new
+fillPick :: (Point -> Int) -> I.RawPixel -> I.RawPixel -> Point -> I.Image s -> I.RawPixel
+fillPick aliaser' old new at img = 
+    alphaBlend old $ antialias img at aliaser' new
 
--- fillCircleWith :: Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
--- fillCircleWith (x,y) r with img = 
---     let ((_, _), (width, height)) = bounds img 
---     in img//
---         [((i, j), fillPick aliaser' (img ! (i, j)) with (i, j) img) 
---         | i <- [y-r..y+r]
---         , j <- [x-r..x+r]
---         -- , dist2 (i, j) (x, y) <= r^2 
---             , i <= height 
---             && j <= width
---             && i >= 1
---             && j >= 1]
+fillCircleWith :: Point -> Int -> I.RawPixel -> I.Image s -> ST s ()
+fillCircleWith (x,y) r with img@Image{imageImg} = do
+    ((_, _), (width, height)) <- getBounds imageImg 
+    let iter =  [(i, j) 
+                | i <- [y-r..y+r]
+                , j <- [x-r..x+r]
+                -- , dist2 (i, j) (x, y) <= r^2 
+                    , i <= height 
+                    && j <= width
+                    && i >= 1
+                    && j >= 1]
+    forM_ iter (\(i, j) -> do
+        prev <- readArray imageImg (i, j)
+        writeArray imageImg (i, j) $ fillPick aliaser' prev with (i, j) img)
 
 
---     where   aliaser' :: Point -> Int
---             aliaser' (i, j) =
---                     let aa = antialiasAmt
---                         pCenter'@(x', y') = (aa*x, aa*y)
---                         r' = aa*r  
---                         tester = (\p1 -> dist2 p1 pCenter' <= r'^2)
---                     in aliaser (tester) (i, j)
+    where   aliaser' :: Point -> Int
+            aliaser' (i, j) =
+                    let aa = antialiasAmt
+                        pCenter'@(x', y') = (aa*x, aa*y)
+                        r' = aa*r  
+                        tester = (\p1 -> dist2 p1 pCenter' <= r'^2)
+                    in aliaser (tester) (i, j)
 
 -- fillLineWith :: Point -> Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
 -- fillLineWith (x1, y1) (x2, y2) strokeWidth with img

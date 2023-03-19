@@ -47,8 +47,9 @@ rectangleExample img = do
 --     let canvas' = D.fillTriangleWith (100, 0) (100, 100) (0, 100) (0, 255, 0, 255) canvas
 --     in D.fillTriangleWith (100, 0) (255, 255) (0, 100) (255, 0, 255, 125) canvas'
 
--- circleExample :: Canvas -> Canvas
--- circleExample canvas = D.fillCircleWith (120, 120) 50 (255, 0, 0, 255) canvas
+circleExample :: I.Image s -> ST s ()
+circleExample canvas = 
+    D.fillCircleWith (120, 120) 50 (255, 0, 0, 255) canvas
 
 run :: ST s (IO ())
 run = do
@@ -59,8 +60,8 @@ run = do
     -- let image' = linesExample image
     -- let image' = triangleExample image
     -- let image' = triangleExample2 image
-    rectangleExample image
-    -- let image' = circleExample image
+    -- rectangleExample image
+    circleExample image
     saveImage "assets/test.ppm" image
 
 main :: IO ()
