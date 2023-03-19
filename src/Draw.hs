@@ -168,33 +168,35 @@ fillLineWith (x1, y1) (x2, y2) strokeWidth with img@Image{imageImg}
     | otherwise = undefined
 
 
--- -- https://web.archive.org/web/20141221050705/http://forum.devmaster.net/t/advanced-rasterization/6145
--- -- (y-y1) = m(x-x1)
--- -- y = m(x-x1) + y1
--- -- true + false -
--- halfspace :: Point -> Point -> Point -> Bool
--- halfspace (x1, y1) (x2, y2) (x, y) = 
---     (x1 - x2) * (y1 - y) - (y2 - y1) * (x - x1) > 0
+-- https://web.archive.org/web/20141221050705/http://forum.devmaster.net/t/advanced-rasterization/6145
+-- (y-y1) = m(x-x1)
+-- y = m(x-x1) + y1
+-- true + false -
+halfspace :: Point -> Point -> Point -> Bool
+halfspace (x1, y1) (x2, y2) (x, y) = 
+    (x1 - x2) * (y1 - y) - (y2 - y1) * (x - x1) > 0
 
--- fillTriangleWith :: Point -> Point -> Point -> I.RawPixel -> I.RawImage -> I.RawImage
--- fillTriangleWith p1@(x1, y1) p2@(x2, y2) p3@(x3, y3) with img =
---     let ((_, _), (width, height)) = bounds img
---         minx = minimum [x1, x2, x3]
---         miny = minimum [y1, y2, y3]
---         maxx = maximum [x1, x2, x3]
---         maxy = maximum [y1, y2, y3]
+fillTriangleWith :: Point -> Point -> Point -> I.RawPixel -> I.Image s -> ST s ()
+fillTriangleWith p1@(x1, y1) p2@(x2, y2) p3@(x3, y3) with img@Image{imageImg} = do
+    ((_, _), (width, height)) <- getBounds imageImg
+    let minx = minimum [x1, x2, x3]
+    let miny = minimum [y1, y2, y3]
+    let maxx = maximum [x1, x2, x3]
+    let maxy = maximum [y1, y2, y3]
 
---     in img//
---         [((i, j), alphaBlend (img ! (i, j)) with)
---         | i <- [miny..maxy]
---         , j <- [minx..maxx]
---         ,      halfspace p1 p2 (j, i)
---             && halfspace p2 p3 (j, i)
---             && halfspace p3 p1 (j, i)
---             && i <= height 
---             && j <= width
---             && i >= 1
---             && j >= 1]
+    let iter =  [(i, j)
+                | i <- [miny..maxy]
+                , j <- [minx..maxx]
+                ,      halfspace p1 p2 (j, i)
+                    && halfspace p2 p3 (j, i)
+                    && halfspace p3 p1 (j, i)
+                    && i <= height 
+                    && j <= width
+                    && i >= 1
+                    && j >= 1]
+    forM_ iter (\(i, j) -> do
+        prev <- readArray imageImg (i, j)
+        writeArray imageImg (i, j) $ alphaBlend (prev) with)
 
 
 -- drawObjectOutlineWith :: G.Geom -> I.RawPixel -> I.RawImage -> I.RawImage

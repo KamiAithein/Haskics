@@ -39,29 +39,30 @@ linesExample img = do
             ]
     forM_ commands (\(p1, p2, width, color) -> D.fillLineWith p1 p2 width color img)
 
--- triangleExample :: Canvas -> Canvas
--- triangleExample canvas  = D.fillTriangleWith (100, 0) (100, 100) (0, 100) (0, 255, 0, 255) canvas
+triangleExample :: I.Image s -> ST s ()
+triangleExample img = do 
+    D.fillTriangleWith (100, 0) (100, 100) (0, 100) (0, 255, 0, 255) img
 
--- triangleExample2 :: Canvas -> Canvas
--- triangleExample2 canvas = 
---     let canvas' = D.fillTriangleWith (100, 0) (100, 100) (0, 100) (0, 255, 0, 255) canvas
---     in D.fillTriangleWith (100, 0) (255, 255) (0, 100) (255, 0, 255, 125) canvas'
+triangleExample2 :: I.Image s -> ST s ()
+triangleExample2 img = do
+    D.fillTriangleWith (100, 0) (100, 100) (0, 100) (0, 255, 0, 255) img
+    D.fillTriangleWith (100, 0) (255, 255) (0, 100) (255, 0, 255, 125) img
 
 circleExample :: I.Image s -> ST s ()
-circleExample canvas = 
-    D.fillCircleWith (120, 120) 50 (255, 0, 0, 255) canvas
+circleExample img = 
+    D.fillCircleWith (120, 120) 50 (255, 0, 0, 255) img
 
 run :: ST s (IO ())
 run = do
     let width = 255
     let height = 255
     image <- I.createImage width height
-    -- fillExample image
+    fillExample image
     linesExample image
-    -- let image' = triangleExample image
-    -- let image' = triangleExample2 image
+    triangleExample image
+    triangleExample2 image
     rectangleExample image
-    -- circleExample image
+    circleExample image
     saveImage "assets/test.ppm" image
 
 main :: IO ()
