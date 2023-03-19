@@ -44,17 +44,19 @@ alphaBlend (r1, g1, b1, a1) (r2, g2, b2, a2) =
     , P.min 255 (a1 + a2)
     )
 
--- fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
--- fillRectWith (x,y) w h with img = 
---     let ((_, _), (width, height)) = bounds img 
---     in img//
---         [((i, j), alphaBlend (img ! (i, j)) with) 
---         | i <- [y..y+h]
---         , j <- [x..x+w]
---         , i <= height 
---             && j <= width
---             && i >= 1
---             && j >= 1]
+fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.Image s -> ST s ()
+fillRectWith (x,y) w h with img@Image{imageImg} = do
+    ((_, _), (width, height)) <- getBounds imageImg 
+    let iter =  [ (i, j) 
+                | i <- [y..y+h]
+                , j <- [x..x+w]
+                , i <= height 
+                    && j <= width
+                    && i >= 1
+                    && j >= 1]
+    forM_ iter (\(i, j) -> do 
+        prev <- readArray imageImg (i, j)
+        writeArray imageImg (i, j) $ alphaBlend prev with)
 
 -- antialias :: I.RawImage -> Point -> (Point -> Int) -> I.RawPixel -> I.RawPixel
 -- antialias img p aliaser (r, g, b, a) = 

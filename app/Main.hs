@@ -15,12 +15,13 @@ fillExample img = do
     D.fillWith (255, 0, 0, 120) img
     D.fillWith (0, 255, 0, 120) img
 
--- rectangleExample :: Canvas -> Canvas
--- rectangleExample canvas = 
---     let canvas'  = D.fillRectWith (0, 0) 50 50 (0, 255, 0, 255) canvas
---         canvas'' = D.fillRectWith (50, 50) 50 50 (0, 0, 255, 200) canvas'
---     in D.fillRectWith (0, 0) 100 100 (255, 0, 0, 100) canvas''
--- -- fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
+rectangleExample :: I.Image s -> ST s ()
+rectangleExample img = do
+    D.fillRectWith (0, 0) 50 50 (0, 255, 0, 255) img
+    D.fillRectWith (50, 50) 50 50 (0, 0, 255, 200) img
+    D.fillRectWith (0, 0) 100 100 (255, 0, 0, 100) img
+
+-- fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
 
 -- linesExample :: Canvas -> Canvas
 -- linesExample canvas = 
@@ -54,11 +55,11 @@ run = do
     let width = 255
     let height = 255
     image <- I.createImage width height
-    fillExample image
+    -- fillExample image
     -- let image' = linesExample image
     -- let image' = triangleExample image
     -- let image' = triangleExample2 image
-    -- let image' = rectangleExample image
+    rectangleExample image
     -- let image' = circleExample image
     saveImage "assets/test.ppm" image
 
