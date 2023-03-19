@@ -23,21 +23,21 @@ rectangleExample img = do
 
 -- fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
 
--- linesExample :: Canvas -> Canvas
--- linesExample canvas = 
+linesExample :: I.Image s -> ST s ()
+linesExample img = do
 
---     let canvas' = D.fillWith (255, 0, 0, 0) canvas
---         strokeWidth = 1
---         commands = 
---             [ ((0, 0),  (255, 255),  strokeWidth, (0, 0, 0, 255))
---             , ((0, 255),  (255, 0),  strokeWidth, (0, 0, 0, 255))
---             , ((0, 200),  (255, 55), strokeWidth, (0, 0, 0, 255))
---             , ((0, 55),  (255, 200), strokeWidth, (0, 0, 0, 255))
---             , ((55, 0),  (200, 255), strokeWidth, (0, 0, 0, 255))
---             , ((200, 0),  (55, 255), strokeWidth, (0, 0, 0, 255))
---             , ((0, 200), (255, 200), strokeWidth, (0, 0, 0, 255))
---             ]
---     in P.foldl (\acc (p1, p2, width, color) -> D.fillLineWith p1 p2 width color acc) canvas' commands
+    D.fillWith (255, 0, 0, 0) img
+    let strokeWidth = 1
+    let commands = 
+            [ ((0, 0),  (255, 255),  strokeWidth, (0, 0, 0, 255))
+            , ((0, 255),  (255, 0),  strokeWidth, (0, 0, 0, 255))
+            , ((0, 200),  (255, 55), strokeWidth, (0, 0, 0, 255))
+            , ((0, 55),  (255, 200), strokeWidth, (0, 0, 0, 255))
+            , ((55, 0),  (200, 255), strokeWidth, (0, 0, 0, 255))
+            , ((200, 0),  (55, 255), strokeWidth, (0, 0, 0, 255))
+            , ((0, 200), (255, 200), strokeWidth, (0, 0, 0, 255))
+            ]
+    forM_ commands (\(p1, p2, width, color) -> D.fillLineWith p1 p2 width color img)
 
 -- triangleExample :: Canvas -> Canvas
 -- triangleExample canvas  = D.fillTriangleWith (100, 0) (100, 100) (0, 100) (0, 255, 0, 255) canvas
@@ -57,11 +57,11 @@ run = do
     let height = 255
     image <- I.createImage width height
     -- fillExample image
-    -- let image' = linesExample image
+    linesExample image
     -- let image' = triangleExample image
     -- let image' = triangleExample2 image
-    -- rectangleExample image
-    circleExample image
+    rectangleExample image
+    -- circleExample image
     saveImage "assets/test.ppm" image
 
 main :: IO ()

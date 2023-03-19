@@ -103,61 +103,69 @@ fillCircleWith (x,y) r with img@Image{imageImg} = do
                         tester = (\p1 -> dist2 p1 pCenter' <= r'^2)
                     in aliaser (tester) (i, j)
 
--- fillLineWith :: Point -> Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
--- fillLineWith (x1, y1) (x2, y2) strokeWidth with img
---     --diagonal decreasing (0, 10) (127, 100)
---     | y1 /= y2 && x1 /= x2 = 
---         let ((_, _), (width, height)) = bounds img 
---             aa = antialiasAmt
---             (x1', y1') = (x1*aa, y1*aa)
---             (x2', y2') = (x2*aa, y2*aa)
---             dy' = y2'-y1'
---             dx' = x2'-x1'
---             m = (fromIntegral dy') / (fromIntegral dx') :: Float -- what if 0
---             b = y1' - dy'*x1' `div` dx'
---             aliaser' = (\(i, j) ->
---                 let aa = antialiasAmt
---                     tester = (\(i', j') -> 
---                         i' <= (P.round $ m * (fromIntegral $ j')) + b + strokeWidth
---                         && i' >= (P.round $ m * (fromIntegral $ j')) + b - strokeWidth)
---                 in aliaser (tester) (i, j))
---         in img//
---             [((i, j), fillPick aliaser' (img ! (i, j)) with (i, j) img)
---             | i <- [P.min y1 y2..P.max y1 y2]
---             , j <- [P.min x1 x2..P.max x1 x2]
---             ,   i <= height 
---                 && j <= width
---                 && i >= 1
---                 && j >= 1]
+fillLineWith :: Point -> Point -> Int -> I.RawPixel -> I.Image s -> ST s ()
+fillLineWith (x1, y1) (x2, y2) strokeWidth with img@Image{imageImg}
+    --diagonal decreasing (0, 10) (127, 100)
+    | y1 /= y2 && x1 /= x2 = do
+        ((_, _), (width, height)) <- getBounds imageImg
+        let aa = antialiasAmt
+        let (x1', y1') = (x1*aa, y1*aa)
+        let (x2', y2') = (x2*aa, y2*aa)
+        let dy' = y2'-y1'
+        let dx' = x2'-x1'
+        let m = (fromIntegral dy') / (fromIntegral dx') :: Float -- what if 0
+        let b = y1' - dy'*x1' `div` dx'
+        let aliaser' = (\(i, j) ->
+                let aa = antialiasAmt
+                    tester = (\(i', j') -> 
+                        i' <= (P.round $ m * (fromIntegral $ j')) + b + strokeWidth
+                        && i' >= (P.round $ m * (fromIntegral $ j')) + b - strokeWidth)
+                in aliaser (tester) (i, j))
+        let iter =  [ (i, j)
+                    | i <- [P.min y1 y2..P.max y1 y2]
+                    , j <- [P.min x1 x2..P.max x1 x2]
+                    ,   i <= height 
+                        && j <= width
+                        && i >= 1
+                        && j >= 1]
+        forM_ iter (\(i, j) -> do
+            prev <- readArray imageImg (i, j)
+            writeArray imageImg (i, j) $ fillPick aliaser' prev with (i, j) img)
                     
 
---     -- horizontal
---     | y2 == y1 && x2 > x1 = 
---         let ((_, _), (width, height)) = bounds img 
---         in img//
---             [((i, j), alphaBlend (img ! (i, j)) with)
---             | i <- [y2-strokeWidth `div` 2..y2+strokeWidth `div` 2]
---             , j <- [x1..x2]
---             , i <= height 
---                 && j <= width
---                 && i >= 1
---                 && j >= 1]
---     | y2 == y1 && x2 < x1 = 
---         fillLineWith (x2, y2) (x1, y1) strokeWidth with img
---     -- vertical
---     | x2 == x1 && y2 > y1 = 
---         let ((_, _), (width, height)) = bounds img 
---         in img//
---             [((i, j), alphaBlend (img ! (i, j)) with)
---             | i <- [y1..y2]
---             , j <- [x2-strokeWidth `div` 2..x2+strokeWidth `div` 2]
---             , i <= height 
---                 && j <= width
---                 && i >= 1
---                 && j >= 1]
---     | x2 == x1 && y2 < y1 = 
---         fillLineWith (x2, y2) (x1, y1) strokeWidth with img
---     | otherwise = undefined
+    -- horizontal
+    | y2 == y1 && x2 > x1 = do
+        ((_, _), (width, height)) <- getBounds imageImg 
+        let iter =  [(i, j)
+                    | i <- [y2-strokeWidth `div` 2..y2+strokeWidth `div` 2]
+                    , j <- [x1..x2]
+                    , i <= height 
+                        && j <= width
+                        && i >= 1
+                        && j >= 1]
+        forM_ iter (\(i, j) -> do
+            prev <- readArray imageImg (i, j)
+            writeArray imageImg (i, j) $ alphaBlend prev with)
+    | y2 == y1 && x2 < x1 = 
+        fillLineWith (x2, y2) (x1, y1) strokeWidth with img
+
+    -- vertical
+    | x2 == x1 && y2 > y1 = do
+        ((_, _), (width, height)) <- getBounds imageImg 
+        let iter =  [(i, j)
+                    | i <- [y1..y2]
+                    , j <- [x2-strokeWidth `div` 2..x2+strokeWidth `div` 2]
+                    , i <= height 
+                        && j <= width
+                        && i >= 1
+                        && j >= 1]
+        forM_ iter (\(i, j) -> do
+            prev <- readArray imageImg (i, j)
+            writeArray imageImg (i, j) $ alphaBlend prev with)
+    | x2 == x1 && y2 < y1 = 
+        fillLineWith (x2, y2) (x1, y1) strokeWidth with img
+
+    | otherwise = undefined
 
 
 -- -- https://web.archive.org/web/20141221050705/http://forum.devmaster.net/t/advanced-rasterization/6145
