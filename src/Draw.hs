@@ -1,14 +1,24 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Draw where
 
 import Prelude as P
 import Image as I
 import Geom as G
-import Data.Array.IArray
 import Debug.Trace
 
+import Control.Monad
+import Control.Monad.ST
 
-fillWith :: I.RawPixel -> I.RawImage -> I.RawImage
-fillWith with erase = amap (\_ -> with) erase
+import Data.Array
+import Data.Array.ST
+
+
+
+fillWith :: I.RawPixel -> I.Image s -> ST s ()
+fillWith with toFill@Image{imageImg} = do
+    ((_, _), (width, height)) <- getBounds imageImg
+    forM_ [(i, j) | i <- [1..height], j <- [1..width]] (\(i, j) -> writeArray imageImg (i, j) with)
 
 
 type Point = (Int, Int)
@@ -34,145 +44,145 @@ alphaBlend (r1, g1, b1, a1) (r2, g2, b2, a2) =
     , P.min 255 (a1 + a2)
     )
 
-fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
-fillRectWith (x,y) w h with img = 
-    let ((_, _), (width, height)) = bounds img 
-    in img//
-        [((i, j), alphaBlend (img ! (i, j)) with) 
-        | i <- [y..y+h]
-        , j <- [x..x+w]
-        , i <= height 
-            && j <= width
-            && i >= 1
-            && j >= 1]
+-- fillRectWith :: Point -> Int -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
+-- fillRectWith (x,y) w h with img = 
+--     let ((_, _), (width, height)) = bounds img 
+--     in img//
+--         [((i, j), alphaBlend (img ! (i, j)) with) 
+--         | i <- [y..y+h]
+--         , j <- [x..x+w]
+--         , i <= height 
+--             && j <= width
+--             && i >= 1
+--             && j >= 1]
 
-antialias :: I.RawImage -> Point -> (Point -> Int) -> I.RawPixel -> I.RawPixel
-antialias img p aliaser (r, g, b, a) = 
-    let a' = aliaser p
-    in (r, g, b, a')
+-- antialias :: I.RawImage -> Point -> (Point -> Int) -> I.RawPixel -> I.RawPixel
+-- antialias img p aliaser (r, g, b, a) = 
+--     let a' = aliaser p
+--     in (r, g, b, a')
 
-aliaser :: (Point -> Bool) -> Point -> Int
-aliaser tester (i, j) = 
-    let aa = antialiasAmt
-        (i', j') = (aa*i, aa*j)
-        tests = 
-            [ (i' + di, j' + dj) 
-            | di <- [0..(aa - 1)]
-            , dj <- [0..(aa - 1)] ]
-        nPass = length $ filter tester tests
-        nTotal = length tests
-    in P.round $ (fromIntegral nPass :: Float) / (fromIntegral nTotal :: Float) * 255.0 
+-- aliaser :: (Point -> Bool) -> Point -> Int
+-- aliaser tester (i, j) = 
+--     let aa = antialiasAmt
+--         (i', j') = (aa*i, aa*j)
+--         tests = 
+--             [ (i' + di, j' + dj) 
+--             | di <- [0..(aa - 1)]
+--             , dj <- [0..(aa - 1)] ]
+--         nPass = length $ filter tester tests
+--         nTotal = length tests
+--     in P.round $ (fromIntegral nPass :: Float) / (fromIntegral nTotal :: Float) * 255.0 
 
-fillPick :: (Point -> Int) -> I.RawPixel -> I.RawPixel -> Point -> I.RawImage -> I.RawPixel
-fillPick aliaser' old new at img = 
-    alphaBlend old $ antialias img at aliaser' new
+-- fillPick :: (Point -> Int) -> I.RawPixel -> I.RawPixel -> Point -> I.RawImage -> I.RawPixel
+-- fillPick aliaser' old new at img = 
+--     alphaBlend old $ antialias img at aliaser' new
 
-fillCircleWith :: Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
-fillCircleWith (x,y) r with img = 
-    let ((_, _), (width, height)) = bounds img 
-    in img//
-        [((i, j), fillPick aliaser' (img ! (i, j)) with (i, j) img) 
-        | i <- [y-r..y+r]
-        , j <- [x-r..x+r]
-        -- , dist2 (i, j) (x, y) <= r^2 
-            , i <= height 
-            && j <= width
-            && i >= 1
-            && j >= 1]
+-- fillCircleWith :: Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
+-- fillCircleWith (x,y) r with img = 
+--     let ((_, _), (width, height)) = bounds img 
+--     in img//
+--         [((i, j), fillPick aliaser' (img ! (i, j)) with (i, j) img) 
+--         | i <- [y-r..y+r]
+--         , j <- [x-r..x+r]
+--         -- , dist2 (i, j) (x, y) <= r^2 
+--             , i <= height 
+--             && j <= width
+--             && i >= 1
+--             && j >= 1]
 
 
-    where   aliaser' :: Point -> Int
-            aliaser' (i, j) =
-                    let aa = antialiasAmt
-                        pCenter'@(x', y') = (aa*x, aa*y)
-                        r' = aa*r  
-                        tester = (\p1 -> dist2 p1 pCenter' <= r'^2)
-                    in aliaser (tester) (i, j)
+--     where   aliaser' :: Point -> Int
+--             aliaser' (i, j) =
+--                     let aa = antialiasAmt
+--                         pCenter'@(x', y') = (aa*x, aa*y)
+--                         r' = aa*r  
+--                         tester = (\p1 -> dist2 p1 pCenter' <= r'^2)
+--                     in aliaser (tester) (i, j)
 
-fillLineWith :: Point -> Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
-fillLineWith (x1, y1) (x2, y2) strokeWidth with img
-    --diagonal decreasing (0, 10) (127, 100)
-    | y1 /= y2 && x1 /= x2 = 
-        let ((_, _), (width, height)) = bounds img 
-            aa = antialiasAmt
-            (x1', y1') = (x1*aa, y1*aa)
-            (x2', y2') = (x2*aa, y2*aa)
-            dy' = y2'-y1'
-            dx' = x2'-x1'
-            m = (fromIntegral dy') / (fromIntegral dx') :: Float -- what if 0
-            b = y1' - dy'*x1' `div` dx'
-            aliaser' = (\(i, j) ->
-                let aa = antialiasAmt
-                    tester = (\(i', j') -> 
-                        i' <= (P.round $ m * (fromIntegral $ j')) + b + strokeWidth
-                        && i' >= (P.round $ m * (fromIntegral $ j')) + b - strokeWidth)
-                in aliaser (tester) (i, j))
-        in img//
-            [((i, j), fillPick aliaser' (img ! (i, j)) with (i, j) img)
-            | i <- [P.min y1 y2..P.max y1 y2]
-            , j <- [P.min x1 x2..P.max x1 x2]
-            ,   i <= height 
-                && j <= width
-                && i >= 1
-                && j >= 1]
+-- fillLineWith :: Point -> Point -> Int -> I.RawPixel -> I.RawImage -> I.RawImage
+-- fillLineWith (x1, y1) (x2, y2) strokeWidth with img
+--     --diagonal decreasing (0, 10) (127, 100)
+--     | y1 /= y2 && x1 /= x2 = 
+--         let ((_, _), (width, height)) = bounds img 
+--             aa = antialiasAmt
+--             (x1', y1') = (x1*aa, y1*aa)
+--             (x2', y2') = (x2*aa, y2*aa)
+--             dy' = y2'-y1'
+--             dx' = x2'-x1'
+--             m = (fromIntegral dy') / (fromIntegral dx') :: Float -- what if 0
+--             b = y1' - dy'*x1' `div` dx'
+--             aliaser' = (\(i, j) ->
+--                 let aa = antialiasAmt
+--                     tester = (\(i', j') -> 
+--                         i' <= (P.round $ m * (fromIntegral $ j')) + b + strokeWidth
+--                         && i' >= (P.round $ m * (fromIntegral $ j')) + b - strokeWidth)
+--                 in aliaser (tester) (i, j))
+--         in img//
+--             [((i, j), fillPick aliaser' (img ! (i, j)) with (i, j) img)
+--             | i <- [P.min y1 y2..P.max y1 y2]
+--             , j <- [P.min x1 x2..P.max x1 x2]
+--             ,   i <= height 
+--                 && j <= width
+--                 && i >= 1
+--                 && j >= 1]
                     
 
-    -- horizontal
-    | y2 == y1 && x2 > x1 = 
-        let ((_, _), (width, height)) = bounds img 
-        in img//
-            [((i, j), alphaBlend (img ! (i, j)) with)
-            | i <- [y2-strokeWidth `div` 2..y2+strokeWidth `div` 2]
-            , j <- [x1..x2]
-            , i <= height 
-                && j <= width
-                && i >= 1
-                && j >= 1]
-    | y2 == y1 && x2 < x1 = 
-        fillLineWith (x2, y2) (x1, y1) strokeWidth with img
-    -- vertical
-    | x2 == x1 && y2 > y1 = 
-        let ((_, _), (width, height)) = bounds img 
-        in img//
-            [((i, j), alphaBlend (img ! (i, j)) with)
-            | i <- [y1..y2]
-            , j <- [x2-strokeWidth `div` 2..x2+strokeWidth `div` 2]
-            , i <= height 
-                && j <= width
-                && i >= 1
-                && j >= 1]
-    | x2 == x1 && y2 < y1 = 
-        fillLineWith (x2, y2) (x1, y1) strokeWidth with img
-    | otherwise = undefined
+--     -- horizontal
+--     | y2 == y1 && x2 > x1 = 
+--         let ((_, _), (width, height)) = bounds img 
+--         in img//
+--             [((i, j), alphaBlend (img ! (i, j)) with)
+--             | i <- [y2-strokeWidth `div` 2..y2+strokeWidth `div` 2]
+--             , j <- [x1..x2]
+--             , i <= height 
+--                 && j <= width
+--                 && i >= 1
+--                 && j >= 1]
+--     | y2 == y1 && x2 < x1 = 
+--         fillLineWith (x2, y2) (x1, y1) strokeWidth with img
+--     -- vertical
+--     | x2 == x1 && y2 > y1 = 
+--         let ((_, _), (width, height)) = bounds img 
+--         in img//
+--             [((i, j), alphaBlend (img ! (i, j)) with)
+--             | i <- [y1..y2]
+--             , j <- [x2-strokeWidth `div` 2..x2+strokeWidth `div` 2]
+--             , i <= height 
+--                 && j <= width
+--                 && i >= 1
+--                 && j >= 1]
+--     | x2 == x1 && y2 < y1 = 
+--         fillLineWith (x2, y2) (x1, y1) strokeWidth with img
+--     | otherwise = undefined
 
 
--- https://web.archive.org/web/20141221050705/http://forum.devmaster.net/t/advanced-rasterization/6145
--- (y-y1) = m(x-x1)
--- y = m(x-x1) + y1
--- true + false -
-halfspace :: Point -> Point -> Point -> Bool
-halfspace (x1, y1) (x2, y2) (x, y) = 
-    (x1 - x2) * (y1 - y) - (y2 - y1) * (x - x1) > 0
+-- -- https://web.archive.org/web/20141221050705/http://forum.devmaster.net/t/advanced-rasterization/6145
+-- -- (y-y1) = m(x-x1)
+-- -- y = m(x-x1) + y1
+-- -- true + false -
+-- halfspace :: Point -> Point -> Point -> Bool
+-- halfspace (x1, y1) (x2, y2) (x, y) = 
+--     (x1 - x2) * (y1 - y) - (y2 - y1) * (x - x1) > 0
 
-fillTriangleWith :: Point -> Point -> Point -> I.RawPixel -> I.RawImage -> I.RawImage
-fillTriangleWith p1@(x1, y1) p2@(x2, y2) p3@(x3, y3) with img =
-    let ((_, _), (width, height)) = bounds img
-        minx = minimum [x1, x2, x3]
-        miny = minimum [y1, y2, y3]
-        maxx = maximum [x1, x2, x3]
-        maxy = maximum [y1, y2, y3]
+-- fillTriangleWith :: Point -> Point -> Point -> I.RawPixel -> I.RawImage -> I.RawImage
+-- fillTriangleWith p1@(x1, y1) p2@(x2, y2) p3@(x3, y3) with img =
+--     let ((_, _), (width, height)) = bounds img
+--         minx = minimum [x1, x2, x3]
+--         miny = minimum [y1, y2, y3]
+--         maxx = maximum [x1, x2, x3]
+--         maxy = maximum [y1, y2, y3]
 
-    in img//
-        [((i, j), alphaBlend (img ! (i, j)) with)
-        | i <- [miny..maxy]
-        , j <- [minx..maxx]
-        ,      halfspace p1 p2 (j, i)
-            && halfspace p2 p3 (j, i)
-            && halfspace p3 p1 (j, i)
-            && i <= height 
-            && j <= width
-            && i >= 1
-            && j >= 1]
+--     in img//
+--         [((i, j), alphaBlend (img ! (i, j)) with)
+--         | i <- [miny..maxy]
+--         , j <- [minx..maxx]
+--         ,      halfspace p1 p2 (j, i)
+--             && halfspace p2 p3 (j, i)
+--             && halfspace p3 p1 (j, i)
+--             && i <= height 
+--             && j <= width
+--             && i >= 1
+--             && j >= 1]
 
 
 -- drawObjectOutlineWith :: G.Geom -> I.RawPixel -> I.RawImage -> I.RawImage
