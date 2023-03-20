@@ -134,7 +134,7 @@ fillLineWith (x1, y1) (x2, y2) strokeWidth with img@Image{imageImg}
                     
 
     -- horizontal
-    | y2 == y1 && x2 > x1 = do
+    | y2 == y1 && x2 >= x1 = do
         ((_, _), (width, height)) <- getBounds imageImg 
         let iter =  [(i, j)
                     | i <- [y2-strokeWidth `div` 2..y2+strokeWidth `div` 2]
@@ -150,7 +150,7 @@ fillLineWith (x1, y1) (x2, y2) strokeWidth with img@Image{imageImg}
         fillLineWith (x2, y2) (x1, y1) strokeWidth with img
 
     -- vertical
-    | x2 == x1 && y2 > y1 = do
+    | x2 == x1 && y2 >= y1 = do
         ((_, _), (width, height)) <- getBounds imageImg 
         let iter =  [(i, j)
                     | i <- [y1..y2]
@@ -198,6 +198,31 @@ fillTriangleWith p1@(x1, y1) p2@(x2, y2) p3@(x3, y3) with img@Image{imageImg} = 
         prev <- readArray imageImg (i, j)
         writeArray imageImg (i, j) $ alphaBlend (prev) with)
 
+-- assume everything is a triangle for now
+drawObjectOutlineWith :: G.Geom -> I.RawPixel -> I.Image s -> ST s ()
+drawObjectOutlineWith geom@G.Geom{gVertices, gFaces} with img@Image{imageImg} = do
+    let gVertices' = map vMapper gVertices
+    let gLines    = trace "drawing!" map lMapper $ map fMapper gFaces
+    forM_ gLines (\gLine -> forM_ gLine (\(p1i, p2i) -> fillLineWith (gVertices' !! (p1i - 1)) (gVertices' !! (p2i - 1)) 2 with img))
+
+    where   
+            vMapper :: G.Vertex -> Point 
+            vMapper (x, y, 0) = (round x*100, round y*100)
+            vMapper (x, y, z) = (round $ x/z*100, round $ y/z*100)
+            
+            fMapper :: [Int] -> [Int]
+            fMapper orig@(_:_:[]) = orig
+            fMapper orig@(_:[])   = undefined -- todo
+            fMapper orig@[]       = undefined -- todo
+            fMapper (f:fs) = (f:fs) ++ [f]
+
+            lMapper :: [Int] -> [(Int, Int)]
+            lMapper [] = []
+            lMapper [i] = []
+            lMapper pts = lMapper' pts []
+
+            lMapper' (p1:p2:rest) acc = lMapper' (p2:rest) ((p1, p2):acc)
+            lMapper' _ acc = acc  
 
 -- drawObjectOutlineWith :: G.Geom -> I.RawPixel -> I.RawImage -> I.RawImage
 -- drawObjectOutlineWith G.Geom{vert=gVertices, face=gFaces} with canvas = 

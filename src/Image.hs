@@ -12,6 +12,8 @@ import Control.Monad.ST
 import Data.Array
 import Data.Array.ST
 
+import Debug.Trace
+
 type RawPixel = (Int, Int, Int, Int)    -- r g b a
 type RawBounds = (Int, Int)             -- y, x
 type RawImage s = STArray s RawBounds RawPixel

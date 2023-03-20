@@ -4,6 +4,7 @@ module Main (main) where
 
 import Image as I
 import Draw as D
+import Geom as G
 import Data.Array.IArray
 import Prelude as P
 
@@ -52,18 +53,34 @@ circleExample :: I.Image s -> ST s ()
 circleExample img = 
     D.fillCircleWith (120, 120) 50 (255, 0, 0, 255) img
 
-run :: ST s (IO ())
-run = do
+geomExample :: I.Image s -> ST s ()
+geomExample img = do
+    let geom = G.Geom {gVertices = [ (100, 100, 3), (0, 100, 2), (0, 0, 4)], gFaces = [[0, 1, 2]]}
+    D.drawObjectOutlineWith geom (255, 0, 0, 255) img
+
+geomExample2 :: I.Image s -> Geom -> ST s ()
+geomExample2 img geom = D.drawObjectOutlineWith geom (255, 0, 0, 255) img
+            
+
+
+run :: G.Geom -> ST s (IO ())
+run geom = do
     let width = 255
     let height = 255
     image <- I.createImage width height
-    fillExample image
-    linesExample image
-    triangleExample image
-    triangleExample2 image
-    rectangleExample image
-    circleExample image
+    -- fillExample image
+    -- linesExample image
+    -- triangleExample image
+    -- triangleExample2 image
+    -- rectangleExample image
+    -- circleExample image
+    -- geomExample image
+    geomExample2 image geom
+        
     saveImage "assets/test.ppm" image
 
 main :: IO ()
-main = runST $ run
+main = do 
+    geom <- G.geomFromFile "assets/test.obj"
+    runST $ run geom
+    putStrLn "potato"
